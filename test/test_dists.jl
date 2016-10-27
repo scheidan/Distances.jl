@@ -63,7 +63,12 @@ for (x, y) in (([4., 5., 6., 7.], [3., 9., 8., 1.]),
     @test spannorm_dist(x, x) == 0.
     @test spannorm_dist(x, y) == maximum(x - vec(y)) - minimum(x - vec(y))
 
+    @test gkl_divergence(x, y) ≈ sum(i -> x[i] * log(x[i] / y[i]) - x[i] + y[i], 1:length(x))
 
+    @test meanad(x, y) ≈ mean(Float64[abs(x[i] - y[i]) for i in 1:length(x)])
+    @test msd(x, y) ≈ mean(Float64[abs2(x[i] - y[i]) for i in 1:length(x)])
+    @test rmsd(x, y) ≈ sqrt(msd(x, y))
+    @test nrmsd(x, y) ≈ sqrt(msd(x, y)) / (maximum(x) - minimum(x))
 
     w = ones(4)
     @test sqeuclidean(x, y) ≈ wsqeuclidean(x, y, w)
@@ -101,7 +106,7 @@ w = rand(size(a))
 p = r = rand(12)
 p[p .< 0.3] = 0.0
 scale = sum(p) / sum(r)
-r /= sum(r)    
+r /= sum(r)
 p /= sum(p)
 q = rand(12)
 q /= sum(q)
@@ -119,14 +124,14 @@ end
 @test renyi_divergence(p, p, rand()) ≈ 0
 @test renyi_divergence(p, p, 1.0 + rand()) ≈ 0
 @test renyi_divergence(p, p, Inf) ≈ 0
-@test renyi_divergence(p, r, 0) ≈ -log(scale)    
-@test renyi_divergence(p, r, 1) ≈ -log(scale)    
-@test renyi_divergence(p, r, rand()) ≈ -log(scale)    
+@test renyi_divergence(p, r, 0) ≈ -log(scale)
+@test renyi_divergence(p, r, 1) ≈ -log(scale)
+@test renyi_divergence(p, r, rand()) ≈ -log(scale)
 @test renyi_divergence(p, r, Inf) ≈ -log(scale)
 @test isinf(renyi_divergence([0.0, 0.5, 0.5], [0.0, 1.0, 0.0], Inf))
 @test renyi_divergence([0.0, 1.0, 0.0], [0.0, 0.5, 0.5], Inf) ≈ log(2.0)
 @test renyi_divergence(p, q, 1) ≈ kl_divergence(p, q)
-    
+
 pm = (p + q) / 2
 jsv = kl_divergence(p, pm) / 2 + kl_divergence(q, pm) / 2
 @test js_divergence(p, p) ≈ 0.0

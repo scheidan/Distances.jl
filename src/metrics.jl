@@ -24,6 +24,7 @@ type CorrDist <: SemiMetric end
 
 type ChiSqDist <: SemiMetric end
 type KLDivergence <: PreMetric end
+type GenKLDivergence <: PreMetric end
 
 immutable RenyiDivergence{T <: Real} <: PreMetric
     p::T # order of power mean (order of divergence - 1)
@@ -37,10 +38,10 @@ immutable RenyiDivergence{T <: Real} <: PreMetric
         is_zero = q ≈ zero(T)
         is_one = q ≈ one(T)
         is_inf = isinf(q)
-        
+
         # Only positive Rényi divergences are defined
         !is_zero && q < zero(T) && throw(ArgumentError("Order of Rényi divergence not legal, $(q) < 0."))
-        
+
         new(q - 1, !(is_zero || is_one || is_inf), is_zero, is_one, is_inf)
     end
 end
@@ -50,8 +51,15 @@ type JSDivergence <: SemiMetric end
 
 type SpanNormDist <: SemiMetric end
 
+# Deviations are handled separately from the other distances/divergences and
+# are excluded from `UnionMetrics`
+type MeanAbsDeviation <: Metric end
+type MeanSqDeviation <: SemiMetric end
+type RMSDeviation <: Metric end
+type NormRMSDeviation <: Metric end
 
-typealias UnionMetrics Union{Euclidean, SqEuclidean, Chebyshev, Cityblock, Minkowski, Hamming, Jaccard, RogersTanimoto, CosineDist, CorrDist, ChiSqDist, KLDivergence, RenyiDivergence, JSDivergence, SpanNormDist}
+
+typealias UnionMetrics Union{Euclidean, SqEuclidean, Chebyshev, Cityblock, Minkowski, Hamming, Jaccard, RogersTanimoto, CosineDist, CorrDist, ChiSqDist, KLDivergence, RenyiDivergence, JSDivergence, SpanNormDist, GenKLDivergence}
 
 ###########################################################
 #
@@ -162,6 +170,11 @@ chisq_dist(a::AbstractArray, b::AbstractArray) = evaluate(ChiSqDist(), a, b)
 @inline eval_op(::KLDivergence, ai, bi) = ai > 0 ? ai * log(ai / bi) : zero(ai)
 @inline eval_reduce(::KLDivergence, s1, s2) = s1 + s2
 kl_divergence(a::AbstractArray, b::AbstractArray) = evaluate(KLDivergence(), a, b)
+
+# GenKLDivergence
+@inline eval_op(::GenKLDivergence, ai, bi) = ai > 0 ? ai * log(ai / bi) - ai + bi : bi
+@inline eval_reduce(::GenKLDivergence, s1, s2) = s1 + s2
+gkl_divergence(a::AbstractArray, b::AbstractArray) = evaluate(GenKLDivergence(), a, b)
 
 # RenyiDivergence
 function eval_start{T<:AbstractFloat}(::RenyiDivergence, a::AbstractArray{T}, b::AbstractArray{T})
@@ -288,6 +301,24 @@ end
     numerator / denominator
 end
 rogerstanimoto{T <: Bool}(a::AbstractArray{T}, b::AbstractArray{T}) = evaluate(RogersTanimoto(), a, b)
+
+# Deviations
+
+evaluate(::MeanAbsDeviation, a, b) = cityblock(a, b) / length(a)
+meanad(a, b) = evaluate(MeanAbsDeviation(), a, b)
+
+evaluate(::MeanSqDeviation, a, b) = sqeuclidean(a, b) / length(a)
+msd(a, b) = evaluate(MeanSqDeviation(), a, b)
+
+evaluate(::RMSDeviation, a, b) = sqrt(evaluate(MeanSqDeviation(), a, b))
+rmsd(a, b) = evaluate(RMSDeviation(), a, b)
+
+function evaluate(::NormRMSDeviation, a, b)
+    amin, amax = extrema(a)
+    return evaluate(RMSDeviation(), a, b) / (amax - amin)
+end
+nrmsd(a, b) = evaluate(NormRMSDeviation(), a, b)
+
 
 ###########################################################
 #
